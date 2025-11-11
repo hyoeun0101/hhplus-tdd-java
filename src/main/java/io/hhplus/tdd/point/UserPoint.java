@@ -17,4 +17,10 @@ public record UserPoint(
             throw new IllegalStateException("충전포인트가 최소 충전포인트(" + MIN_CHARGE_AMOUNT + "P) 미만입니다.");
         }
     }
+
+    public void validateUsePoint(long amount) {
+        if (amount > point) {
+            throw new IllegalStateException("잔액이 부족합니다. 사용포인트("+ amount +"P), 잔액포인트("+ point + "P)");
+        }
+    }
 }

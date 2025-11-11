@@ -41,4 +41,18 @@ public class PointService {
 
         return updatedUserPoint;
     }
+
+    public UserPoint usePoint(long userId, long usePoint) {
+
+        UserPoint userPoint = userPointTable.selectById(userId);
+        if (userPoint == null) {
+            throw new IllegalArgumentException("userId [" + userId + "] not found");
+        }
+        userPoint.validateUsePoint(usePoint);
+
+        UserPoint updatedUserPoint = userPointTable.insertOrUpdate(userId, userPoint.point() - usePoint);
+
+        pointHistoryTable.insert(userId, usePoint, TransactionType.USE, System.currentTimeMillis());
+        return updatedUserPoint;
+    }
 }

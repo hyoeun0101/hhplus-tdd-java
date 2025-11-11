@@ -149,4 +149,60 @@ class PointServiceTest {
                 .hasMessage("충전포인트가 최소 충전포인트(10P) 미만입니다.");
     }
 
+    @Test
+    @DisplayName("유효한 유저ID로 포인트를 사용하면 사용자 포인트가 차감되고, 내역이 저장된다.")
+    public void givenUserPoint_whenUsePoint_thenSuccess() {
+        //given
+        long userId = 1L;
+        long usePoint = 1000L;
+        long now = Instant.parse("2025-11-10T00:00:00Z").toEpochMilli();
+        UserPoint userPoint = new UserPoint(userId, 5000L, now);
+        long updatedPoint = userPoint.point() - usePoint;
+        UserPoint updatedUserPoint = new UserPoint(userId, updatedPoint, now);
+
+        when(userPointTable.selectById(userId)).thenReturn(userPoint);
+        when(userPointTable.insertOrUpdate(userId, updatedPoint)).thenReturn(updatedUserPoint);
+        when(pointHistoryTable.insert(eq(userId), eq(usePoint), eq(TransactionType.USE), anyLong()))
+                .thenReturn(new PointHistory(1L, userId, usePoint, TransactionType.USE, now));
+
+        //when
+        UserPoint result = pointService.usePoint(userId, usePoint);
+
+        //then
+        assertThat(result).isEqualTo(updatedUserPoint);
+        verify(userPointTable, times(1)).selectById(userId);
+        verify(userPointTable, times(1)).insertOrUpdate(userId, updatedPoint);
+        verify(pointHistoryTable, times(1)).insert(eq(userId), eq(usePoint), eq(TransactionType.USE), anyLong());
+    }
+
+    @Test
+    @DisplayName("존재하지 않은 유저 ID로 포인트를 사용하면 예외가 발생한다.")
+    public void givenNotExistUserId_whenUsePoint_thenThrowException() {
+        //given
+        long userId = 0L;
+        long usePoint = 1000L;
+        when(userPointTable.selectById(userId)).thenReturn(null);
+
+        //when & then
+        assertThrows(IllegalArgumentException.class, () -> pointService.usePoint(userId, usePoint));
+        verify(userPointTable, times(1)).selectById(userId);
+    }
+
+    @Test
+    @DisplayName("포인트 사용 시 포인트 잔액이 부족하면 예외가 발생한다.")
+    public void givenInsufficientPoint_whenUsePoint_thenThrowException() {
+        //given
+        long userId = 1L;
+        long usePoint = 1000L;
+        UserPoint userPoint = new UserPoint(userId, 500L, Instant.parse("2025-11-10T00:00:00Z").toEpochMilli());
+
+        when(userPointTable.selectById(userId)).thenReturn(userPoint);
+
+        //when & then
+        assertThatThrownBy(() -> pointService.usePoint(userId, usePoint))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("잔액이 부족합니다. 사용포인트(1000P), 잔액포인트(500P)");
+    }
+
+
 }
