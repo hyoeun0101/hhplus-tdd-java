@@ -27,4 +27,18 @@ public class PointService {
     public List<PointHistory> getPointHistories(long userId) {
         return pointHistoryTable.selectAllByUserId(userId);
     }
+
+    public UserPoint chargeUserPoint(long userId, long chargePoint) {
+        UserPoint userPoint = userPointTable.selectById(userId);
+        if (userPoint == null) {
+            throw new IllegalArgumentException("userId [" + userId + "] not found");
+        }
+        userPoint.validateChargePoint(chargePoint);
+
+        UserPoint updatedUserPoint = userPointTable.insertOrUpdate(userId, userPoint.point() + chargePoint);
+
+        pointHistoryTable.insert(userId, chargePoint, TransactionType.CHARGE, System.currentTimeMillis());
+
+        return updatedUserPoint;
+    }
 }
